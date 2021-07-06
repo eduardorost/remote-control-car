@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  connection: local
+
+  vars:
+    - homeDir: /home/ec2-user
+    - appDir : app
+    - repo: remote-control-car
+    - account: eduardorost
+
+  tasks:
+  - name: Install pm2
+    npm: name=pm2 global=yes production=yes
+
+  - name: Git Clone Repo
+    git: repo=git@github.com:{{account}}/{{repo}}.git dest={{homeDir}}/{{repo}} update=yes force=yes accept_hostkey=yes key_file={{homeDir}}/.ssh/id_rsa
+    register: git_finished
+
+  - name: Running NPM install
+    npm: path={{homeDir}}/{{repo}}/{{appDir}}
+    when: git_finished.changed
+    register: npm_finished
+
+  - name: Stop APP
+    command: pm2 stop app chdir={{homeDir}}/{{repo}}/{{appDir}}
+    ignore_errors: yes
+
+  - name: Start APP
+    command: pm2 start index.js --name app chdir={{homeDir}}/{{repo}}/{{appDir}}
+    ignore_errors: yes
+    when: npm_finished.changed
